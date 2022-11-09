@@ -1,0 +1,71 @@
+name:  dashboards-connect
+
+on:
+  push:
+    branches: [ '**', '!feature/**', '!backport/**' ]
+    paths-ignore:
+      - '**/*.md'
+    pull_request:
+      branches: [ '**', '!feature/**' ]
+      paths-ignore:
+        - '**/*.md'
+
+env:
+  TEST_BROWSER_HEADLESS: 1
+  CI: 1
+  GCS_UPLOAD_PREFIX: fake
+  TEST_OPENSEARCH_DASHBOARDS_HOST: localhost
+  TEST_OPENSEARCH_DASHBOARDS_PORT: 6610
+  TEST_OPENSEARCH_TRANSPORT_PORT: 9403
+  TEST_OPENSEARCH_PORT: 9400
+  OSD_SNAPSHOT_SKIP_VERIFY_CHECKSUM: true
+
+jobs:
+
+  build-lint-test:
+    runs-on: ubuntu-latest # Should not need to delint in multiple platforms so just Linux is fine
+    name: Build and Verify
+    steps:
+
+      - name: Checkout Branch
+        uses: actions/checkout@v2
+
+      - name: Setup Node
+        uses: actions/setup-node@v2
+        with:
+          node-version-file: '.nvmrc'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Lint-Test
+        uses: ./.github/actions/dashboards-lint-test
+        with:
+          yarn-version: 1.22.10
+          coverage-directory: ./target/opensearch-dashboards-coverages
+
+  dashboards-functional-test:
+    strategy:
+      matrix:
+        os: [ ubuntu-latest ] # windows, ubuntu
+        jdk: [11] # 11 and 17
+        group: [1] # previously 1-13
+    runs-on: ${{ matrix.os }}
+    name: Functional tests
+    steps:
+
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Setup Node
+        uses: actions/setup-node@v2
+        with:
+          node-version-file: '.nvmrc'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Functional-Test
+        uses: ./.github/actions/dashboards-functional-test
+        with:
+          yarn-version: 1.22.10
+          chromedriver-version: 99.0.0
+          script-path: build_opensearch_dashboards_platform_plugins
+          number-of-workers: 10
+          group-number: ${{ matrix.group}}

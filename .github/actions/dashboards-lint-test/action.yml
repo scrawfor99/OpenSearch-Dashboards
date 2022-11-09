@@ -1,0 +1,48 @@
+name: 'Dashboards Lint Test'
+description: 'Downloads latest build of OpenSearch Dashboards, setups a dashboards instance and then checks for code maintabiliity'
+
+inputs:
+
+  yarn-version:
+    description: 'The yarn version you wish to use for testing'
+    required: true
+
+  coverage-directory:
+    description: 'The name of the directory where you want code coverage to be stored'
+    required: true
+
+runs:
+  using: "composite"
+  container:
+    image: docker://opensearchstaging/ci-runner:ci-runner-rockylinux8-opensearch-dashboards-integtest-v2
+    options: --user 1001
+  steps:
+    - name: Setup Yarn
+      run: |
+        npm uninstall -g yarn
+        npm i -g yarn@${{ inputs.yarn-version }}
+
+    - name: Run bootstrap
+      run: yarn osd bootstrap
+
+    - name: Run linter
+      id: linter
+      run: yarn lint
+
+    - name: Run unit tests with coverage
+      id: unit-tests
+      run: yarn test:jest:ci:coverage
+
+    - name: Run mocha tests with coverage
+      id: mocha-tests
+      run: yarn test:mocha:coverage
+
+    - name: Upload Code Coverage
+      id: upload-code-coverage
+      uses: codecov/codecov-action@v3
+      with:
+        directory: ${{ inputs.coverage-directory }}
+
+    - name: Run integration tests
+      id: integration-tests
+      run: yarn test:jest_integration:ci

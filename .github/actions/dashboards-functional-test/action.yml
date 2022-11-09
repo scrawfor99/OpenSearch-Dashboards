@@ -1,0 +1,69 @@
+name: 'Dashboards Functional Test'
+description: 'Downloads latest build of OpenSearch Dashboards, setups a dashboards instance and then runs functional tests'
+
+inputs:
+
+  yarn-version:
+    description: 'The yarn version you wish to use for testing'
+    required: true
+
+  chromedriver-version:
+    description: 'The chromedriver version you wish to use for testing'
+    required: true
+
+  script-path:
+    description: 'The path to the dashboards scripts used during the build process'
+    required: true
+
+  number-of-workers:
+    description: 'The number of workers used during the build and testing process for example 6'
+    required: true
+
+  group-number:
+    description: 'The id for the running group'
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+    - run: echo Running functional tests for ciGroup${{ inputs.group-number }}
+      shell: bash
+
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Setup Node
+      uses: actions/setup-node@v2
+      with:
+        node-version-file: '.nvmrc'
+        registry-url: 'https://registry.npmjs.org'
+
+    - name: Setup Yarn
+      run: |
+        npm uninstall -g yarn
+        npm i -g yarn@${{ inputs.yarn-version }}
+      shell: bash
+
+    # image has the latest chrome v99
+    - name: Setup chromedriver
+      run: yarn add --dev chromedriver@${{ inputs.chrome-version }}
+      shell: bash
+
+    - name: Run bootstrap
+      run: yarn osd bootstrap
+      shell: bash
+
+    - name: Build plugins
+      run: node scripts/${{ inputs.script-path }} --no-examples --workers ${{ inputs.number-of-workers }}
+      shell: bash
+
+    - name: Run CI test group ${{ inputs.group-number }}
+      id: ftr-tests
+      shell: bash
+      run: node scripts/functional_tests.js --config test/functional/config.js --include ciGroup${{ inputs.group-number }}
+      env:
+        CI_GROUP: ciGroup${{ inputs.group-number }}
+        CI_PARALLEL_PROCESS_NUMBER: ciGroup${{ inputs.group-number }}
+        JOB: ci${{ inputs.group-number }}
+        CACHE_DIR: ciGroup${{ inputs.group-number }}
+
