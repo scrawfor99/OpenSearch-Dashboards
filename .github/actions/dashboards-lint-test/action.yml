@@ -44,7 +44,6 @@ runs:
       uses: codecov/codecov-action@v3
       with:
         directory: ${{ inputs.coverage-directory }}
-      shell: bash
 
     - name: Run integration tests
       id: integration-tests
